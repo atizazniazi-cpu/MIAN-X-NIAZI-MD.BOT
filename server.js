@@ -116,7 +116,7 @@ async function startBot() {
         const raw = body.trim();
         const command = raw.toLowerCase().split(/\s+/)[0];
         try {
-          const arg = raw.slice(raw.indexOf(" ") + 1).trim();
+          const arg = raw.includes(" ") ? raw.slice(raw.indexOf(" ") + 1).trim() : "";
           if ([".ping", "ping"].includes(command)) {
             await sock.sendMessage(jid, { text: "╭━━〔 NIAZI-MD 〕━━╮\n│ 🟢 Pong! Bot online\n│ ⚡ Status: Connected\n╰━━━━━━━━━━━━━━╯" }, { quoted: msg });
           } else if ([".menu", "menu", ".help", "help", ".commands"].includes(command)) {
