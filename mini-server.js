@@ -11,6 +11,7 @@ const {
 
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "8kb" }));
 const PORT = process.env.PORT || 3000;
 const OWNER_NUMBER = (process.env.OWNER_NUMBER || "923220225993").replace(/\D/g, "");
@@ -255,7 +256,7 @@ app.get("/api/status", (_req, res) => {
   });
 });
 app.post("/api/pair", async (req, res) => {
-  const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+  const ip = String(req.ip || req.socket.remoteAddress || "unknown");
   if (!checkRate(ip)) return res.status(429).json({ error: "Too many pairing requests. Wait 10 minutes and try again." });
   const number = validNumber(req.body?.number);
   if (!number) return res.status(400).json({ error: "Enter a valid WhatsApp number with country code, digits only." });
