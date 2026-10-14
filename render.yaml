@@ -1,17 +1,15 @@
 services:
   - type: web
-    name: niazi-md-bot
+    name: niazi-md-mini-beta
     runtime: node
-    plan: starter
-    region: oregon
+    plan: free
+    region: singapore
     buildCommand: npm install
     startCommand: npm start
-    disk:
-      name: niazi-md-session
-      mountPath: /opt/render/project/src/session
-      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "20"
       - key: OWNER_NUMBER
         value: "923220225993"
+      - key: MAX_USERS
+        value: "8"
