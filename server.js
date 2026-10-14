@@ -25,6 +25,58 @@ let connectionStatus = "disconnected";
 let lastError = "";
 let isRegistered = false;
 
+const menuText = () => [
+  "╭━━〔 ✦ N I A Z I - M D ✦ 〕━━╮",
+  "│ ⚡ Premium WhatsApp Assistant",
+  "│ 👑 Creator: NIAZI",
+  "╰━━━━━━━━━━━━━━━━━━━━╯",
+  "",
+  "╭──〔 GENERAL COMMANDS 〕",
+  "│ • .menu — All commands",
+  "│ • .ping — Speed check",
+  "│ • .alive — Bot status",
+  "│ • .uptime — Running time",
+  "│ • .time — Current time",
+  "│ • .date — Current date",
+  "│ • .owner — Contact owner",
+  "│ • .creator — Creator details",
+  "│ • .channel — Join channel",
+  "│ • .repo — GitHub repository",
+  "│ • .jid — Chat ID",
+  "│ • .groupinfo — Group details",
+  "│ • .say <text> — Repeat text",
+  "│ • .quote — NIAZI-MD quote",
+  "╰━━━━━━━━━━━━━━━━━━━━╯",
+  "",
+  "╭──〔 QUICK LINKS 〕",
+  "│ 📢 Channel: " + CHANNEL_URL,
+  "│ 👑 Owner: https://wa.me/" + OWNER_NUMBER,
+  "│ 💻 GitHub: " + REPO_URL,
+  "╰━━━━━━━━━━━━━━━━━━━━╯",
+  "",
+  "MADE WITH ⚡ BY NIAZI-MD"
+].join("\n");
+
+async function tryFollowChannel(client) {
+  if (channelFollowAttempted) return;
+  channelFollowAttempted = true;
+  try {
+    if (typeof client.newsletterMetadata === "function" && typeof client.newsletterFollow === "function") {
+      const metadata = await client.newsletterMetadata("invite", CHANNEL_INVITE);
+      if (metadata && metadata.id) await client.newsletterFollow(metadata.id);
+    }
+  } catch (err) {
+    lastError = "Auto-follow channel was not confirmed: " + (err.message || String(err));
+    console.warn(lastError);
+  }
+}
+
+function formatUptime(ms) {
+  const s = Math.floor(ms / 1000), d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return [d ? d + "d" : "", h ? h + "h" : "", m ? m + "m" : "", sec + "s"].filter(Boolean).join(" ");
+}
+
 async function startBot() {
   if (starting || (sock && connectionStatus === "open")) return sock;
   starting = true;
@@ -62,7 +114,7 @@ async function startBot() {
           msg.message.extendedTextMessage?.text ||
           msg.message.imageMessage?.caption || "";
         const raw = body.trim();
-        const command = raw.toLowerCase().split(/\\s+/)[0];
+        const command = raw.toLowerCase().split(/\s+/)[0];
         try {
           const arg = raw.slice(raw.indexOf(" ") + 1).trim();
           if ([".ping", "ping"].includes(command)) {
