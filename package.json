@@ -1,11 +1,11 @@
 {
-  "name": "niazi-md-bot",
-  "version": "1.0.0",
+  "name": "niazi-md-mini-bot",
+  "version": "1.1.0",
   "private": true,
-  "description": "NIAZI-MD WhatsApp bot with pairing panel",
-  "main": "server.js",
+  "description": "NIAZI-MD public multi-user WhatsApp mini bot beta",
+  "main": "mini-server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node mini-server.js"
   },
   "engines": {
     "node": ">=20"
@@ -14,7 +14,6 @@
     "@whiskeysockets/baileys": "^6.7.18",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "pino": "^9.6.0",
-    "qrcode": "^1.5.4"
+    "pino": "^9.6.0"
   }
 }
