@@ -299,45 +299,6 @@ async function startBot() {
   }
 }
 
-app.get("/", (_req, res) => {
-  res.type("html").send(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIAZI-MD Pairing</title>
-<style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#07090d;color:#f3f6fb;font-family:Arial,sans-serif;display:grid;place-items:center;padding:18px}
-.card{width:min(100%,440px);background:#10151d;border:1px solid #253243;border-radius:20px;padding:24px;box-shadow:0 0 35px #00e5ff14}
-img{width:100%;max-height:180px;object-fit:cover;border-radius:14px}h1{letter-spacing:2px;color:#00e5ff;text-align:center;margin-bottom:6px}p{text-align:center;color:#b6c2d1;line-height:1.5}
-input,button{width:100%;padding:14px;border-radius:10px;font-size:16px;margin-top:10px}input{background:#080c12;color:white;border:1px solid #334155}button{border:0;background:#00d5e8;color:#001015;font-weight:bold}
-.links{display:flex;gap:10px;margin-top:12px}.links a{flex:1;text-align:center;padding:12px 6px;border-radius:10px;background:#1d2938;color:#f3f6fb;text-decoration:none;font-size:14px}
-#result{word-break:break-word;color:#6fffd2;font-weight:bold;text-align:center;margin-top:15px}
-small{display:block;color:#93a4b8;text-align:center;margin-top:16px}
-</style></head><body><main class="card"><img src="${MENU_IMAGE}" alt="NIAZI-MD"><h1>NIAZI-MD</h1><p>WhatsApp Pairing Panel<br>Enter your WhatsApp number with country code.</p>
-<form id="form"><input id="number" inputmode="numeric" placeholder="e.g. 923001234567" required><button id="submit" type="submit">GENERATE PAIRING CODE</button></form>
-<div id="result" role="status"></div><div class="links"><a href="${CHANNEL_URL}" target="_blank" rel="noreferrer">Join Channel</a><a href="https://wa.me/${OWNER_NUMBER}" target="_blank" rel="noreferrer">Connect Owner</a></div>
-<small>Keep your pairing code private. Never share it with anyone.</small></main>
-<script>
-document.getElementById('form').addEventListener('submit',async e=>{e.preventDefault();const n=document.getElementById('number').value.replace(/\\D/g,'');const b=document.getElementById('submit');const r=document.getElementById('result');if(n.length<10||n.length>15){r.textContent='Enter a valid number with country code.';return}b.disabled=true;b.textContent='CONNECTING...';r.textContent='Requesting code from WhatsApp…';try{const x=await fetch('/api/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:n})});const d=await x.json();r.textContent=d.code?'Your pairing code: '+d.code:(d.error||'Could not generate code. Try again.')}catch(_){r.textContent='Server error. Please try again.'}finally{b.disabled=false;b.textContent='GENERATE PAIRING CODE'}});
-</script></body></html>`);
-});
-
-app.get("/api/status", (_req, res) => {
-  res.json({ app: "NIAZI-MD", connection: connectionStatus, lastError: lastError || undefined });
-});
-
-app.post("/api/pair", async (req, res) => {
-  const number = String(req.body?.number || "").replace(/\D/g, "");
-  if (number.length < 10 || number.length > 15) return res.status(400).json({ error: "Enter a valid phone number with country code." });
-  try {
-    const client = await startBot();
-    if (isRegistered) return res.status(409).json({ error: "A WhatsApp session is already registered on this server." });
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    const code = await client.requestPairingCode(number);
-    res.json({ code: code?.match(/.{1,4}/g)?.join("-") || code });
-  } catch (err) {
-    lastError = err.message || String(err);
-    res.status(500).json({ error: "Pairing failed: " + lastError });
-  }
-});
-
 app.listen(PORT, () => {
   console.log("NIAZI-MD panel listening on " + PORT);
   if (fs.existsSync(path.join(__dirname, "session", "creds.json"))) {
