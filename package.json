@@ -1,0 +1,20 @@
+{
+  "name": "niazi-md-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NIAZI-MD WhatsApp bot with pairing panel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
+  }
+}
