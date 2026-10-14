@@ -19,19 +19,21 @@ let sock;
 let starting = false;
 let connectionStatus = "disconnected";
 let lastError = "";
+let isRegistered = false;
 
 async function startBot() {
   if (starting || (sock && connectionStatus === "open")) return sock;
   starting = true;
   try {
     const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, "session"));
+    isRegistered = Boolean(state.creds.registered);
     sock = makeWASocket({
       auth: state,
       logger: pino({ level: "silent" }),
       printQRInTerminal: false,
       browser: ["NIAZI-MD", "Chrome", "1.0.0"]
     });
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", async () => { isRegistered = Boolean(state.creds.registered); await saveCreds(); });
     sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
       if (connection) connectionStatus = connection;
       if (connection === "close") {
@@ -107,7 +109,7 @@ app.post("/api/pair", async (req, res) => {
   if (number.length < 10 || number.length > 15) return res.status(400).json({ error: "Enter a valid phone number with country code." });
   try {
     const client = await startBot();
-    if (client.authState?.creds?.registered) return res.status(409).json({ error: "A WhatsApp session is already registered on this server." });
+    if (isRegistered) return res.status(409).json({ error: "A WhatsApp session is already registered on this server." });
     await new Promise(resolve => setTimeout(resolve, 1200));
     const code = await client.requestPairingCode(number);
     res.json({ code: code?.match(/.{1,4}/g)?.join("-") || code });
@@ -117,4 +119,9 @@ app.post("/api/pair", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log("NIAZI-MD panel listening on " + PORT));
+app.listen(PORT, () => {
+  console.log("NIAZI-MD panel listening on " + PORT);
+  if (fs.existsSync(path.join(__dirname, "session", "creds.json"))) {
+    startBot().catch(err => { lastError = err.message || String(err); });
+  }
+});
