@@ -1,26 +1,35 @@
-# NIAZI-MD WhatsApp Bot
+# ⚡ NIAZI-MD WhatsApp Bot
 
-A starter Node.js WhatsApp pairing panel for the NIAZI-MD project.
+A NIAZI-branded WhatsApp pairing panel and Node.js bot starter.
+
+## Included
+
+- Premium mobile-friendly RGB/neon pairing website with the supplied NIAZI-MD image
+- Pairing code form and status endpoint
+- Join Channel, Connect Owner, GitHub and Render deployment links
+- Best-effort attempt to follow the configured WhatsApp Channel after the WhatsApp connection opens
+- Commands: `.menu`, `.help`, `.commands`, `.ping`, `.alive`, `.status`, `.uptime`, `.time`, `.date`, `.owner`, `.creator`, `.mian`, `.channel`, `.joinchannel`, `.repo`, `.github`, `.jid`, `.groupinfo`, `.say <text>`, `.quote`
+
+## Links
+
+- WhatsApp Channel: https://whatsapp.com/channel/0029VbByXON8KMqcY2Ilj53s
+- Owner: https://wa.me/923220225993
+- GitHub: https://github.com/atizazniazi-cpu/MIAN-X-NIAZI-MD.BOT
 
 ## Deploy
 
-- Use a persistent Node.js host that supports long-running processes and WebSocket connections.
-- Use Node.js 20 or newer.
-- Install/start commands: `npm install` and `npm start`.
-- Optional environment variable: `OWNER_NUMBER=923220225993`.
-- Persistent storage is required for the `session/` directory. Never share session files.
+Use the **Deploy Bot** button on the website or create a Render Blueprint from this repository. The included `render.yaml` configures a persistent session disk; a paid Render plan may be required for persistent disks.
 
-## Pairing
+- Node.js 20+
+- Build command: `npm install`
+- Start command: `npm start`
+- Optional environment variable: `OWNER_NUMBER=923220225993`
+- Keep the `session/` directory on persistent storage. Never publish or share its credentials.
 
-Open the deployed site, enter your WhatsApp number with country code (digits only), then enter the generated code in WhatsApp under **Linked devices → Link a device → Link with phone number**.
+After deployment, open the service URL and enter the WhatsApp number with country code. Then, on WhatsApp, go to **Linked devices → Link a device → Link with phone number** and enter the code.
 
-Keep pairing codes and session credentials private. If WhatsApp logs out, remove the old session directory from persistent storage before pairing again.
+## Important notes
 
-## Included starter commands
+This is a starter command set, not a restoration of every command from an older bot. The older bot source/ZIP or its full command list has not been provided in this repository, so those commands cannot be safely recreated yet. More commands can be merged when that source is available.
 
-- `.ping`
-- `.menu`
-- `.owner`
-- `.channel`
-
-This is a starter, not a complete restoration of a previous NIAZI-MD/IMMU-MD command collection. Existing commands require the original bot source or ZIP to be merged in. WhatsApp may change or restrict unofficial client connections; pairing is not guaranteed, and this code has not been live-tested against a WhatsApp account here.
+Auto-following the channel is best-effort and depends on the current Baileys/WhatsApp support; the Join Channel link is always available if automatic following is not accepted. Pairing and deployment have not been live-tested with a WhatsApp account here. Unofficial WhatsApp clients can stop working when WhatsApp changes its service.
