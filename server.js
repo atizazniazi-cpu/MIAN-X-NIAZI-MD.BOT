@@ -61,34 +61,35 @@ async function startBot() {
         const body = msg.message.conversation ||
           msg.message.extendedTextMessage?.text ||
           msg.message.imageMessage?.caption || "";
-        const command = body.trim().toLowerCase();
+        const raw = body.trim();
+        const command = raw.toLowerCase().split(/\\s+/)[0];
         try {
           const arg = raw.slice(raw.indexOf(" ") + 1).trim();
           if ([".ping", "ping"].includes(command)) {
-            await sock.sendMessage(jid, { text: "╭━━〔 NIAZI-MD 〕━━╮\\n│ 🟢 Pong! Bot online\\n│ ⚡ Status: Connected\\n╰━━━━━━━━━━━━━━╯" }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "╭━━〔 NIAZI-MD 〕━━╮\n│ 🟢 Pong! Bot online\n│ ⚡ Status: Connected\n╰━━━━━━━━━━━━━━╯" }, { quoted: msg });
           } else if ([".menu", "menu", ".help", "help", ".commands"].includes(command)) {
             await sock.sendMessage(jid, { image: { url: MENU_IMAGE }, caption: menuText() }, { quoted: msg });
           } else if ([".alive", "alive", ".status"].includes(command)) {
-            await sock.sendMessage(jid, { text: "╭━━〔 NIAZI-MD STATUS 〕━━╮\\n│ 🟢 Bot: Online\\n│ 🔗 WhatsApp: " + connectionStatus + "\\n│ ⏱️ Uptime: " + formatUptime(Date.now() - startedAt) + "\\n│ 👑 Creator: NIAZI\\n╰━━━━━━━━━━━━━━━━━━╯\\n\\n📢 Join Channel: " + CHANNEL_URL }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "╭━━〔 NIAZI-MD STATUS 〕━━╮\n│ 🟢 Bot: Online\n│ 🔗 WhatsApp: " + connectionStatus + "\n│ ⏱️ Uptime: " + formatUptime(Date.now() - startedAt) + "\n│ 👑 Creator: NIAZI\n╰━━━━━━━━━━━━━━━━━━╯\n\n📢 Join Channel: " + CHANNEL_URL }, { quoted: msg });
           } else if ([".uptime", "uptime"].includes(command)) {
             await sock.sendMessage(jid, { text: "⏱️ NIAZI-MD uptime: " + formatUptime(Date.now() - startedAt) }, { quoted: msg });
           } else if ([".owner", "owner"].includes(command)) {
-            await sock.sendMessage(jid, { text: "╭━━〔 CONNECT OWNER 〕━━╮\\n👑 NIAZI-MD Owner\\nhttps://wa.me/" + OWNER_NUMBER + "\\n╰━━━━━━━━━━━━━━━━━━╯" }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "╭━━〔 CONNECT OWNER 〕━━╮\n👑 NIAZI-MD Owner\nhttps://wa.me/" + OWNER_NUMBER + "\n╰━━━━━━━━━━━━━━━━━━╯" }, { quoted: msg });
           } else if ([".creator", "creator", ".mian"].includes(command)) {
-            await sock.sendMessage(jid, { text: "⚡ Created with pride by NIAZI.\\nBot: NIAZI-MD\\nGitHub: " + REPO_URL }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "⚡ Created with pride by NIAZI.\nBot: NIAZI-MD\nGitHub: " + REPO_URL }, { quoted: msg });
           } else if ([".channel", "channel", ".joinchannel"].includes(command)) {
-            await sock.sendMessage(jid, { text: "📢 Follow the official NIAZI-MD WhatsApp Channel:\\n" + CHANNEL_URL }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "📢 Follow the official NIAZI-MD WhatsApp Channel:\n" + CHANNEL_URL }, { quoted: msg });
           } else if ([".repo", "repo", ".github"].includes(command)) {
-            await sock.sendMessage(jid, { text: "💻 NIAZI-MD GitHub Repository:\\n" + REPO_URL }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "💻 NIAZI-MD GitHub Repository:\n" + REPO_URL }, { quoted: msg });
           } else if ([".time", "time"].includes(command)) {
             await sock.sendMessage(jid, { text: "🕒 Current server time: " + new Date().toLocaleTimeString("en-PK", { timeZone: process.env.TIME_ZONE || "Asia/Karachi" }) }, { quoted: msg });
           } else if ([".date", "date"].includes(command)) {
             await sock.sendMessage(jid, { text: "📅 Date: " + new Date().toLocaleDateString("en-PK", { timeZone: process.env.TIME_ZONE || "Asia/Karachi", dateStyle: "full" }) }, { quoted: msg });
           } else if ([".jid", "jid"].includes(command)) {
-            await sock.sendMessage(jid, { text: "🆔 Chat JID:\\n" + jid }, { quoted: msg });
+            await sock.sendMessage(jid, { text: "🆔 Chat JID:\n" + jid }, { quoted: msg });
           } else if ([".groupinfo", "groupinfo"].includes(command)) {
             if (!jid.endsWith("@g.us")) await sock.sendMessage(jid, { text: "This command works inside a group." }, { quoted: msg });
-            else { const meta = await sock.groupMetadata(jid); await sock.sendMessage(jid, { text: "╭━━〔 GROUP INFO 〕━━╮\\n│ Name: " + meta.subject + "\\n│ Members: " + meta.participants.length + "\\n│ Group ID: " + jid + "\\n╰━━━━━━━━━━━━━━━━╯" }, { quoted: msg }); }
+            else { const meta = await sock.groupMetadata(jid); await sock.sendMessage(jid, { text: "╭━━〔 GROUP INFO 〕━━╮\n│ Name: " + meta.subject + "\n│ Members: " + meta.participants.length + "\n│ Group ID: " + jid + "\n╰━━━━━━━━━━━━━━━━╯" }, { quoted: msg }); }
           } else if ([".say", "say"].includes(command)) {
             if (!arg) await sock.sendMessage(jid, { text: "Usage: .say your message" }, { quoted: msg });
             else await sock.sendMessage(jid, { text: arg.slice(0, 1500) }, { quoted: msg });
