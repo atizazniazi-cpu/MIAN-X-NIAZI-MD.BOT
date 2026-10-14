@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: niazi-md-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: niazi-md-session
+      mountPath: /opt/render/project/src/session
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: OWNER_NUMBER
+        value: "923220225993"
