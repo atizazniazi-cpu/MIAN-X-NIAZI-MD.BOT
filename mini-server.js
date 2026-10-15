@@ -350,81 +350,161 @@ app.get("/api/qr", async (req, res) => {
   const ip = String(req.ip || req.socket.remoteAddress || "unknown");
   if (!checkRate(ip)) return res.status(429).json({ error: "Too many requests. Wait 10 minutes and try again." });
   if (activeCount() >= MAX_USERS) return res.status(503).json({ error: "Free beta is at capacity right now. Try again later." });
+
   const token = "qr-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
   const sessionDir = path.join(SESSION_ROOT, token);
   fs.mkdirSync(sessionDir, { recursive: true });
+
   try {
     const auth = await useMultiFileAuthState(sessionDir);
-    const session = { number: "QR login", dir: sessionDir, socket: null, status: "connecting", starting: true, pairingCode: "", registered: Boolean(auth.state.creds.registered), lastError: "", pairTimer: null, qr: "" };
+    const session = {
+      number: "QR login", dir: sessionDir, socket: null, status: "connecting",
+      starting: true, pairingCode: "", registered: Boolean(auth.state.creds.registered),
+      lastError: "", pairTimer: null, qr: "", reconnectAttempts: 0, qrToken: token
+    };
     sessions.set(token, session);
     qrRequests.set(token, session);
-    const client = makeWASocket({
-      auth: auth.state,
-      logger: pino({ level: "silent" }),
-      printQRInTerminal: false,
-      browser: ["NIAZI-MD MINI", "Chrome", "1.0.0"],
-      markOnlineOnConnect: false,
-      syncFullHistory: false
-    });
-    session.socket = client;
-    client.ev.on("creds.update", async () => {
-      session.registered = Boolean(auth.state.creds.registered);
-      try { await auth.saveCreds(); } catch (_) {}
-    });
-    attachCommands(client, "QR login", session);
-    const qrData = await new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (err, value) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (err) client.ev.off("connection.update", onUpdate);
-        err ? reject(err) : resolve(value);
-      };
-      const timer = setTimeout(() => finish(new Error("QR took too long to generate. Try again.")), 25000);
-      const onUpdate = async ({ qr, connection, lastDisconnect }) => {
-        if (qr) {
-          session.qr = qr;
-          session.qrUpdatedAt = Date.now();
+
+    let client;
+    let qrPromiseSettled = false;
+    let resolveQr, rejectQr;
+    const qrReady = new Promise((resolve, reject) => { resolveQr = resolve; rejectQr = reject; });
+    const failQr = (err) => {
+      if (qrPromiseSettled) return;
+      qrPromiseSettled = true;
+      rejectQr(err);
+    };
+    const publishQr = async (raw) => {
+      session.qr = raw;
+      session.qrUpdatedAt = Date.now();
+      try {
+        session.qrData = await QRCode.toDataURL(raw, { width: 320, margin: 2, errorCorrectionLevel: "M" });
+        if (!qrPromiseSettled) {
+          qrPromiseSettled = true;
+          resolveQr(session.qrData);
+        }
+      } catch (err) { failQr(err); }
+    };
+    const onUpdate = async ({ qr, connection, lastDisconnect }) => {
+      if (qr) await publishQr(qr);
+      if (connection === "open") {
+        session.status = "open";
+        session.starting = false;
+        session.registered = true;
+        session.qrConnected = true;
+        session.lastError = "";
+        const actual = String(auth.state.creds.me?.id || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+        if (actual.length >= 10 && actual.length <= 15) {
+          const target = path.join(SESSION_ROOT, actual);
           try {
-            session.qrData = await QRCode.toDataURL(qr, { width: 320, margin: 2, errorCorrectionLevel: "M" });
-            finish(null, session.qrData);
-          } catch (err) { finish(err); }
+            if (session.dir !== target && !fs.existsSync(target)) {
+              fs.renameSync(session.dir, target);
+              session.dir = target;
+            }
+            sessions.delete(token);
+            session.number = actual;
+            sessions.set(actual, session);
+          } catch (err) { session.lastError = "Connected, but session folder rename failed."; }
         }
-        if (connection === "open") {
-          session.status = "open";
-          session.starting = false;
-          session.qrConnected = true;
-          session.registered = true;
-          const actual = String(auth.state.creds.me?.id || "").split("@")[0].split(":")[0].replace(/\D/g, "");
-          if (actual.length >= 10 && actual.length <= 15) {
-            const target = path.join(SESSION_ROOT, actual);
-            try {
-              if (sessionDir !== target && !fs.existsSync(target)) { fs.renameSync(sessionDir, target); session.dir = target; }
-              sessions.delete(token);
-              session.number = actual;
-              sessions.set(actual, session);
-            } catch (_) {}
+      }
+      if (connection === "close") {
+        const code = lastDisconnect?.error?.output?.statusCode;
+        session.status = "closed";
+        session.starting = false;
+        if (code === DisconnectReason.loggedOut) {
+          session.lastError = "WhatsApp logged out this session. Generate a fresh QR.";
+          failQr(new Error(session.lastError));
+          return;
+        }
+        // Baileys commonly closes with restart-required (515) after QR scan.
+        // Recreate the socket with the saved credentials so the link can finish.
+        if (session.registered || auth.state.creds.registered) {
+          if (session.reconnectAttempts >= 8) {
+            session.lastError = "WhatsApp reconnect limit reached. Generate a fresh QR.";
+            failQr(new Error(session.lastError));
+            return;
           }
+          session.reconnectAttempts += 1;
+          const old = client;
+          setTimeout(() => {
+            try {
+              if (old?.ev?.off) old.ev.off("connection.update", onUpdate);
+              const next = makeWASocket({
+                auth: auth.state,
+                logger: pino({ level: "silent" }),
+                printQRInTerminal: false,
+                browser: ["NIAZI-MD MINI", "Chrome", "1.0.0"],
+                markOnlineOnConnect: false,
+                syncFullHistory: false
+              });
+              client = next;
+              session.socket = next;
+              session.status = "connecting";
+              next.ev.on("creds.update", async () => {
+                session.registered = Boolean(auth.state.creds.registered);
+                try { await auth.saveCreds(); } catch (err) { session.lastError = "Could not save session credentials."; }
+              });
+              attachCommands(next, session.number, session);
+              next.ev.on("connection.update", onUpdate);
+            } catch (err) {
+              session.lastError = err.message || "Could not reconnect WhatsApp.";
+              failQr(err);
+            }
+          }, Math.min(4000, 700 * session.reconnectAttempts));
+        } else {
+          failQr(new Error(lastDisconnect?.error?.message || "WhatsApp closed before QR was ready."));
         }
-        if (connection === "close") finish(new Error(lastDisconnect?.error?.message || "WhatsApp closed before QR was ready."));
-      };
+      }
+    };
+
+    const connect = () => {
+      client = makeWASocket({
+        auth: auth.state,
+        logger: pino({ level: "silent" }),
+        printQRInTerminal: false,
+        browser: ["NIAZI-MD MINI", "Chrome", "1.0.0"],
+        markOnlineOnConnect: false,
+        syncFullHistory: false
+      });
+      session.socket = client;
+      client.ev.on("creds.update", async () => {
+        session.registered = Boolean(auth.state.creds.registered);
+        try { await auth.saveCreds(); } catch (err) { session.lastError = "Could not save session credentials."; }
+      });
+      attachCommands(client, session.number, session);
       client.ev.on("connection.update", onUpdate);
-    });
-    session.qrData = session.qrData || qrData;
+    };
+    connect();
+
+    const firstQr = await Promise.race([
+      qrReady,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("QR took too long to generate. Try again.")), 25000))
+    ]);
+    session.qrData = session.qrData || firstQr;
     session.qrExpiresAt = Date.now() + 10 * 60 * 1000;
     session.qrCleanupTimer = setTimeout(() => {
-      if (sessions.get(token) === session && session.status !== "open") {
+      const active = sessions.get(token) === session || sessions.get(session.number) === session;
+      if (active && session.status !== "open") {
         sessions.delete(token);
-        try { client.end(new Error("QR login timed out")); } catch (_) {}
+        sessions.delete(session.number);
+        qrRequests.delete(token);
+        try { session.socket?.end(new Error("QR login timed out")); } catch (_) {}
         fs.rm(session.dir, { recursive: true, force: true }, () => {});
       }
     }, 10 * 60 * 1000);
     res.json({ token, qr: session.qrData, updatedAt: session.qrUpdatedAt || Date.now(), expiresIn: 45, message: "WhatsApp > Linked devices > Link a device, then scan this QR." });
   } catch (err) {
-    sessions.delete(token);
-    qrRequests.delete(token);
-    fs.rm(sessionDir, { recursive: true, force: true }, () => {});
+    const session = sessions.get(token);
+    if (session) {
+      sessions.delete(token);
+      qrRequests.delete(token);
+      try { session.socket?.end(new Error("QR setup failed")); } catch (_) {}
+      fs.rm(session.dir || sessionDir, { recursive: true, force: true }, () => {});
+    } else {
+      sessions.delete(token);
+      qrRequests.delete(token);
+      fs.rm(sessionDir, { recursive: true, force: true }, () => {});
+    }
     res.status(500).json({ error: err.message || "Could not create QR code. Try again." });
   }
 });
