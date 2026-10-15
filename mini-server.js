@@ -377,7 +377,7 @@ app.get("/api/qr", async (req, res) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        client.ev.off("connection.update", onUpdate);
+        if (err) client.ev.off("connection.update", onUpdate);
         err ? reject(err) : resolve(value);
       };
       const timer = setTimeout(() => finish(new Error("QR took too long to generate. Try again.")), 25000);
