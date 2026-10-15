@@ -384,12 +384,16 @@ app.get("/api/qr", async (req, res) => {
       const onUpdate = async ({ qr, connection, lastDisconnect }) => {
         if (qr) {
           session.qr = qr;
-          try { finish(null, await QRCode.toDataURL(qr, { width: 320, margin: 2, errorCorrectionLevel: "M" })); }
-          catch (err) { finish(err); }
+          session.qrUpdatedAt = Date.now();
+          try {
+            session.qrData = await QRCode.toDataURL(qr, { width: 320, margin: 2, errorCorrectionLevel: "M" });
+            finish(null, session.qrData);
+          } catch (err) { finish(err); }
         }
         if (connection === "open") {
           session.status = "open";
           session.starting = false;
+          session.qrConnected = true;
           session.registered = true;
           const actual = String(auth.state.creds.me?.id || "").split("@")[0].split(":")[0].replace(/\D/g, "");
           if (actual.length >= 10 && actual.length <= 15) {
@@ -406,12 +410,30 @@ app.get("/api/qr", async (req, res) => {
       };
       client.ev.on("connection.update", onUpdate);
     });
-    res.json({ qr: qrData, expiresIn: 45, message: "WhatsApp > Linked devices > Link a device, then scan this QR." });
+    session.qrData = session.qrData || qrData;
+    session.qrExpiresAt = Date.now() + 10 * 60 * 1000;
+    session.qrCleanupTimer = setTimeout(() => {
+      if (sessions.get(token) === session && session.status !== "open") {
+        sessions.delete(token);
+        try { client.end(new Error("QR login timed out")); } catch (_) {}
+        fs.rm(session.dir, { recursive: true, force: true }, () => {});
+      }
+    }, 10 * 60 * 1000);
+    res.json({ token, qr: session.qrData, updatedAt: session.qrUpdatedAt || Date.now(), expiresIn: 45, message: "WhatsApp > Linked devices > Link a device, then scan this QR." });
   } catch (err) {
     sessions.delete(token);
     fs.rm(sessionDir, { recursive: true, force: true }, () => {});
     res.status(500).json({ error: err.message || "Could not create QR code. Try again." });
   }
+});
+
+app.get("/api/qr/:token", (req, res) => {
+  const session = sessions.get(String(req.params.token || ""));
+  if (!session || !String(req.params.token || "").startsWith("qr-")) return res.status(404).json({ error: "QR session expired. Generate a fresh QR." });
+  if (session.status === "open" || session.qrConnected) return res.json({ connected: true, status: "open", updatedAt: session.qrUpdatedAt || Date.now() });
+  if (session.status === "closed") return res.status(410).json({ error: "WhatsApp closed this QR session. Generate a fresh QR." });
+  if (session.qrData) return res.json({ qr: session.qrData, updatedAt: session.qrUpdatedAt || 0, expiresIn: 45 });
+  return res.status(202).json({ waiting: true, message: "Waiting for WhatsApp QR..." });
 });
 
 app.post("/api/pair", async (req, res) => {
