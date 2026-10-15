@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const pino = require("pino");
+const QRCode = require("qrcode");
 const fs = require("fs");
 const path = require("path");
 const {
@@ -23,6 +24,7 @@ const MAX_USERS = Math.max(1, Math.min(30, Number(process.env.MAX_USERS || 8)));
 const sessions = new Map();
 const ipHits = new Map();
 const numberCooldowns = new Map();
+const qrRequests = new Map();
 const startedAt = Date.now();
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT = 5;
@@ -344,6 +346,74 @@ app.get("/api/status", (_req, res) => {
     uptime: formatUptime(Date.now() - startedAt)
   });
 });
+app.get("/api/qr", async (req, res) => {
+  const ip = String(req.ip || req.socket.remoteAddress || "unknown");
+  if (!checkRate(ip)) return res.status(429).json({ error: "Too many requests. Wait 10 minutes and try again." });
+  if (activeCount() >= MAX_USERS) return res.status(503).json({ error: "Free beta is at capacity right now. Try again later." });
+  const token = "qr-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+  const sessionDir = path.join(SESSION_ROOT, token);
+  fs.mkdirSync(sessionDir, { recursive: true });
+  try {
+    const auth = await useMultiFileAuthState(sessionDir);
+    const session = { number: "QR login", dir: sessionDir, socket: null, status: "connecting", starting: true, pairingCode: "", registered: Boolean(auth.state.creds.registered), lastError: "", pairTimer: null, qr: "" };
+    sessions.set(token, session);
+    const client = makeWASocket({
+      auth: auth.state,
+      logger: pino({ level: "silent" }),
+      printQRInTerminal: false,
+      browser: ["NIAZI-MD MINI", "Chrome", "1.0.0"],
+      markOnlineOnConnect: false,
+      syncFullHistory: false
+    });
+    session.socket = client;
+    client.ev.on("creds.update", async () => {
+      session.registered = Boolean(auth.state.creds.registered);
+      try { await auth.saveCreds(); } catch (_) {}
+    });
+    attachCommands(client, "QR login", session);
+    const qrData = await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        client.ev.off("connection.update", onUpdate);
+        err ? reject(err) : resolve(value);
+      };
+      const timer = setTimeout(() => finish(new Error("QR took too long to generate. Try again.")), 25000);
+      const onUpdate = async ({ qr, connection, lastDisconnect }) => {
+        if (qr) {
+          session.qr = qr;
+          try { finish(null, await QRCode.toDataURL(qr, { width: 320, margin: 2, errorCorrectionLevel: "M" })); }
+          catch (err) { finish(err); }
+        }
+        if (connection === "open") {
+          session.status = "open";
+          session.starting = false;
+          session.registered = true;
+          const actual = String(auth.state.creds.me?.id || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+          if (actual.length >= 10 && actual.length <= 15) {
+            const target = path.join(SESSION_ROOT, actual);
+            try {
+              if (sessionDir !== target && !fs.existsSync(target)) { fs.renameSync(sessionDir, target); session.dir = target; }
+              sessions.delete(token);
+              session.number = actual;
+              sessions.set(actual, session);
+            } catch (_) {}
+          }
+        }
+        if (connection === "close") finish(new Error(lastDisconnect?.error?.message || "WhatsApp closed before QR was ready."));
+      };
+      client.ev.on("connection.update", onUpdate);
+    });
+    res.json({ qr: qrData, expiresIn: 45, message: "WhatsApp > Linked devices > Link a device, then scan this QR." });
+  } catch (err) {
+    sessions.delete(token);
+    fs.rm(sessionDir, { recursive: true, force: true }, () => {});
+    res.status(500).json({ error: err.message || "Could not create QR code. Try again." });
+  }
+});
+
 app.post("/api/pair", async (req, res) => {
   const ip = String(req.ip || req.socket.remoteAddress || "unknown");
   if (!checkRate(ip)) return res.status(429).json({ error: "Too many pairing requests. Wait 10 minutes and try again." });
