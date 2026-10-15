@@ -7,6 +7,7 @@ const {
   DisconnectReason
 } = require("@whiskeysockets/baileys");
 const fs = require("fs");
+const QRCode = require("qrcode");
 const path = require("path");
 
 const app = express();
@@ -24,6 +25,7 @@ let starting = false;
 let connectionStatus = "disconnected";
 let lastError = "";
 let isRegistered = false;
+let latestQr = "";
 
 const menuText = () => [
   "╭━━〔 ✦ N I A Z I - M D ✦ 〕━━╮",
@@ -90,9 +92,10 @@ async function startBot() {
       browser: ["NIAZI-MD", "Chrome", "1.0.0"]
     });
     sock.ev.on("creds.update", async () => { isRegistered = Boolean(state.creds.registered); await saveCreds(); });
-    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+      if (qr) latestQr = qr;
       if (connection) connectionStatus = connection;
-      if (connection === "open") { lastError = ""; await tryFollowChannel(sock); }
+      if (connection === "open") { latestQr = ""; lastError = ""; await tryFollowChannel(sock); }
       if (connection === "close") {
         const code = lastDisconnect?.error?.output?.statusCode;
         connectionStatus = "disconnected";
@@ -165,7 +168,23 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/api/status", (_req, res) => {
-  res.json({ app: "NIAZI-MD", connection: connectionStatus, lastError: lastError || undefined });
+  res.json({ app: "NIAZI-MD", connection: connectionStatus, lastError: lastError || undefined, qrAvailable: Boolean(latestQr) });
+});
+
+app.get("/api/qr", async (_req, res) => {
+  try {
+    await startBot();
+    const deadline = Date.now() + 18000;
+    while (!latestQr && Date.now() < deadline && connectionStatus !== "open") {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+    if (!latestQr) return res.status(409).json({ error: connectionStatus === "open" ? "WhatsApp is already connected on this server." : "QR not ready yet. Tap Generate QR again in a few seconds." });
+    const dataUrl = await QRCode.toDataURL(latestQr, { width: 320, margin: 2, errorCorrectionLevel: "M" });
+    res.json({ qr: dataUrl, expiresIn: 45 });
+  } catch (err) {
+    lastError = err.message || String(err);
+    res.status(500).json({ error: "Could not create QR: " + lastError });
+  }
 });
 
 app.post("/api/pair", async (req, res) => {
