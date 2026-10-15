@@ -297,31 +297,39 @@ async function startUserSession(number, wantPairingCode) {
   session.starting = false;
 
   if (wantPairingCode && !session.registered) {
-    await new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(readyTimer);
-        client.ev.off("connection.update", onReady);
-        err ? reject(err) : resolve();
-      };
-      const readyTimer = setTimeout(() => finish(new Error("WhatsApp connection was not ready for pairing. Try again.")), 30000);
-      const onReady = async (update) => {
-        if (update.qr && !session.registered && !session.pairingRequested) {
-          session.pairingRequested = true;
-          try {
-            const code = await client.requestPairingCode(number);
-            session.pairingCode = String(code || "").match(/.{1,4}/g)?.join("-") || String(code || "");
-            finish();
-          } catch (err) { finish(err); }
-        }
-        if (update.connection === "close" && !session.pairingCode) {
-          finish(new Error("WhatsApp disconnected before the pairing code was ready."));
-        }
-      };
-      client.ev.on("connection.update", onReady);
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(readyTimer);
+          client.ev.off("connection.update", onReady);
+          err ? reject(err) : resolve();
+        };
+        const readyTimer = setTimeout(() => finish(new Error("WhatsApp connection was not ready for pairing. Try again.")), 30000);
+        const onReady = async (update) => {
+          if (update.qr && !session.registered && !session.pairingRequested) {
+            session.pairingRequested = true;
+            try {
+              const code = await client.requestPairingCode(number);
+              session.pairingCode = String(code || "").match(/.{1,4}/g)?.join("-") || String(code || "");
+              finish();
+            } catch (err) { finish(err); }
+          }
+          if (update.connection === "close" && !session.pairingCode) {
+            finish(new Error("WhatsApp disconnected before the pairing code was ready."));
+          }
+        };
+        client.ev.on("connection.update", onReady);
+      });
+    } catch (err) {
+      if (session.pairTimer) clearTimeout(session.pairTimer);
+      sessions.delete(number);
+      try { client.end(new Error("Pairing setup failed")); } catch (_) {}
+      fs.rm(sessionDir, { recursive: true, force: true }, () => {});
+      throw err;
+    }
     session.pairTimer = setTimeout(() => {
       const current = sessions.get(number);
       if (current === session && !session.registered) {
