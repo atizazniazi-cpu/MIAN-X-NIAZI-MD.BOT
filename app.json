@@ -1,0 +1,26 @@
+{
+  "name": "niazi-md-mini-bot",
+  "description": "NIAZI-MD public multi-user WhatsApp mini bot",
+  "repository": "https://github.com/atizazniazi-cpu/MIAN-X-NIAZI-MD.BOT",
+  "keywords": ["whatsapp", "baileys", "niazi-md", "mini-bot"],
+  "stack": "heroku-24",
+  "buildpacks": [
+    { "url": "heroku/nodejs" }
+  ],
+  "env": {
+    "OWNER_NUMBER": {
+      "description": "Bot owner's WhatsApp number with country code, digits only",
+      "value": "923220225993"
+    },
+    "MAX_USERS": {
+      "description": "Maximum concurrent paired sessions for this instance",
+      "value": "8"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
