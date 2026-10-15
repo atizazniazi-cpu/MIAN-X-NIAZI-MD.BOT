@@ -147,9 +147,9 @@ function attachCommands(client, number, session) {
         } else if ([".reverse", "reverse"].includes(command)) {
           await client.sendMessage(jid, { text: arg ? Array.from(arg).reverse().join("").slice(0, 2000) : "Usage: .reverse your text" }, { quoted: msg });
         } else if ([".count", "count", ".wordcount"].includes(command)) {
-          await client.sendMessage(jid, { text: "Characters: " + arg.length + "\\nWords: " + (arg.trim() ? arg.trim().split(/\\s+/).length : 0) }, { quoted: msg });
+          await client.sendMessage(jid, { text: "Characters: " + arg.length + "\nWords: " + (arg.trim() ? arg.trim().split(/\s+/).length : 0) }, { quoted: msg });
         } else if ([".calc", "calc"].includes(command)) {
-          const m = arg.match(/^(-?\\d+(?:\\.\\d+)?)\\s*([+\\-*/%])\\s*(-?\\d+(?:\\.\\d+)?)$/);
+          const m = arg.match(/^(-?\d+(?:\.\d+)?)\s*([+\-*/%])\s*(-?\d+(?:\.\d+)?)$/);
           if (!m) await client.sendMessage(jid, { text: "Usage: .calc 12 * 4 (one simple operation)" }, { quoted: msg });
           else {
             const a = Number(m[1]), b = Number(m[3]); let out;
@@ -167,7 +167,7 @@ function attachCommands(client, number, session) {
           await client.sendMessage(jid, { text: "🪙 Coin toss: " + (Math.random() < 0.5 ? "Heads" : "Tails") }, { quoted: msg });
         } else if ([".8ball", "8ball"].includes(command)) {
           const answers = ["Yes, definitely ✨", "Maybe 🤔", "Ask again later 🔮", "Most likely 🌟", "Not now 🙃", "Absolutely! 💫"];
-          await client.sendMessage(jid, { text: "🔮 " + (arg || "Your question") + "\\n" + answers[Math.floor(Math.random() * answers.length)] }, { quoted: msg });
+          await client.sendMessage(jid, { text: "🔮 " + (arg || "Your question") + "\n" + answers[Math.floor(Math.random() * answers.length)] }, { quoted: msg });
         } else if ([".joke", "joke"].includes(command)) {
           const jokes = ["Why did the phone need glasses? It lost its contacts. 📱", "Why do programmers prefer dark mode? Because light attracts bugs. 🐛", "I told my Wi-Fi a joke. It disconnected. 😂"];
           await client.sendMessage(jid, { text: jokes[Math.floor(Math.random() * jokes.length)] }, { quoted: msg });
@@ -175,7 +175,7 @@ function attachCommands(client, number, session) {
           const facts = ["Octopuses have three hearts. 🐙", "Honey can remain edible for a very long time when stored properly. 🍯", "A day on Venus is longer than its year. 🪐"];
           await client.sendMessage(jid, { text: "💡 " + facts[Math.floor(Math.random() * facts.length)] }, { quoted: msg });
         } else if ([".love", "love"].includes(command)) {
-          await client.sendMessage(jid, { text: "💗 Love meter: " + Math.floor(Math.random() * 101) + "%\\nFun only — respect and kindness matter most." }, { quoted: msg });
+          await client.sendMessage(jid, { text: "💗 Love meter: " + Math.floor(Math.random() * 101) + "%\nFun only — respect and kindness matter most." }, { quoted: msg });
         } else if ([".motivate", "motivate"].includes(command)) {
           const lines = ["Keep going. Small steps become big results. 💪", "Your future is built by what you do today. ⚡", "Stay humble, learn daily, and never stop improving. 🌟"];
           await client.sendMessage(jid, { text: lines[Math.floor(Math.random() * lines.length)] }, { quoted: msg });
@@ -190,7 +190,7 @@ function attachCommands(client, number, session) {
             else if ([".members", "members"].includes(command)) await client.sendMessage(jid, { text: "👥 Members: " + meta.participants.length }, { quoted: msg });
             else if ([".admins", "admins"].includes(command)) {
               const admins = meta.participants.filter(p => p.admin).map(p => "• " + p.id);
-              await client.sendMessage(jid, { text: "🛡️ Group admins:\\n" + (admins.join("\\n") || "No admins found") }, { quoted: msg });
+              await client.sendMessage(jid, { text: "🛡️ Group admins:\n" + (admins.join("\n") || "No admins found") }, { quoted: msg });
             } else {
               const invite = await client.groupInviteCode(jid);
               await client.sendMessage(jid, { text: "🔗 Group invite: https://chat.whatsapp.com/" + invite }, { quoted: msg });
