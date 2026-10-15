@@ -357,6 +357,7 @@ app.get("/api/qr", async (req, res) => {
     const auth = await useMultiFileAuthState(sessionDir);
     const session = { number: "QR login", dir: sessionDir, socket: null, status: "connecting", starting: true, pairingCode: "", registered: Boolean(auth.state.creds.registered), lastError: "", pairTimer: null, qr: "" };
     sessions.set(token, session);
+    qrRequests.set(token, session);
     const client = makeWASocket({
       auth: auth.state,
       logger: pino({ level: "silent" }),
@@ -422,13 +423,14 @@ app.get("/api/qr", async (req, res) => {
     res.json({ token, qr: session.qrData, updatedAt: session.qrUpdatedAt || Date.now(), expiresIn: 45, message: "WhatsApp > Linked devices > Link a device, then scan this QR." });
   } catch (err) {
     sessions.delete(token);
+    qrRequests.delete(token);
     fs.rm(sessionDir, { recursive: true, force: true }, () => {});
     res.status(500).json({ error: err.message || "Could not create QR code. Try again." });
   }
 });
 
 app.get("/api/qr/:token", (req, res) => {
-  const session = sessions.get(String(req.params.token || ""));
+  const session = qrRequests.get(String(req.params.token || ""));
   if (!session || !String(req.params.token || "").startsWith("qr-")) return res.status(404).json({ error: "QR session expired. Generate a fresh QR." });
   if (session.status === "open" || session.qrConnected) return res.json({ connected: true, status: "open", updatedAt: session.qrUpdatedAt || Date.now() });
   if (session.status === "closed") return res.status(410).json({ error: "WhatsApp closed this QR session. Generate a fresh QR." });
