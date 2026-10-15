@@ -68,6 +68,17 @@ function menuText() {
     "│ • .jid — Chat ID",
     "│ • .groupinfo — Group details",
     "│ • .say <text> — Repeat text",
+    "│ • .upper / .lower — Text case",
+    "│ • .reverse — Reverse text",
+    "│ • .count / .wordcount — Text count",
+    "│ • .calc 2+2 — Basic calculator",
+    "│ • .choose a | b — Random choice",
+    "│ • .dice / .coin / .8ball — Games",
+    "│ • .joke / .fact / .love — Fun",
+    "│ • .motivate — Motivation",
+    "│ • .whoami — Your sender ID",
+    "│ • .groupname / .members / .admins — Group info",
+    "│ • .link — Group invite link",
     "│ • .quote — Motivation",
     "╰━━━━━━━━━━━━━━━━━━━━╯",
     "",
@@ -129,6 +140,62 @@ function attachCommands(client, number, session) {
           }
         } else if ([".say", "say"].includes(command)) {
           await client.sendMessage(jid, { text: arg ? arg.slice(0, 1000) : "Usage: .say your message" }, { quoted: msg });
+        } else if ([".upper", "upper"].includes(command)) {
+          await client.sendMessage(jid, { text: arg ? arg.toUpperCase().slice(0, 2000) : "Usage: .upper your text" }, { quoted: msg });
+        } else if ([".lower", "lower"].includes(command)) {
+          await client.sendMessage(jid, { text: arg ? arg.toLowerCase().slice(0, 2000) : "Usage: .lower your text" }, { quoted: msg });
+        } else if ([".reverse", "reverse"].includes(command)) {
+          await client.sendMessage(jid, { text: arg ? Array.from(arg).reverse().join("").slice(0, 2000) : "Usage: .reverse your text" }, { quoted: msg });
+        } else if ([".count", "count", ".wordcount"].includes(command)) {
+          await client.sendMessage(jid, { text: "Characters: " + arg.length + "\\nWords: " + (arg.trim() ? arg.trim().split(/\\s+/).length : 0) }, { quoted: msg });
+        } else if ([".calc", "calc"].includes(command)) {
+          const m = arg.match(/^(-?\\d+(?:\\.\\d+)?)\\s*([+\\-*/%])\\s*(-?\\d+(?:\\.\\d+)?)$/);
+          if (!m) await client.sendMessage(jid, { text: "Usage: .calc 12 * 4 (one simple operation)" }, { quoted: msg });
+          else {
+            const a = Number(m[1]), b = Number(m[3]); let out;
+            if (m[2] === "+") out = a + b; else if (m[2] === "-") out = a - b;
+            else if (m[2] === "*") out = a * b; else if (m[2] === "/") out = b === 0 ? "Cannot divide by zero" : a / b;
+            else out = b === 0 ? "Cannot divide by zero" : a % b;
+            await client.sendMessage(jid, { text: "🧮 Answer: " + out }, { quoted: msg });
+          }
+        } else if ([".choose", "choose"].includes(command)) {
+          const options = arg.split("|").map(x => x.trim()).filter(Boolean);
+          await client.sendMessage(jid, { text: options.length >= 2 ? "🎯 I choose: " + options[Math.floor(Math.random() * options.length)] : "Usage: .choose tea | coffee" }, { quoted: msg });
+        } else if ([".dice", "dice"].includes(command)) {
+          await client.sendMessage(jid, { text: "🎲 You rolled: " + (1 + Math.floor(Math.random() * 6)) }, { quoted: msg });
+        } else if ([".coin", "coin", ".flip"].includes(command)) {
+          await client.sendMessage(jid, { text: "🪙 Coin toss: " + (Math.random() < 0.5 ? "Heads" : "Tails") }, { quoted: msg });
+        } else if ([".8ball", "8ball"].includes(command)) {
+          const answers = ["Yes, definitely ✨", "Maybe 🤔", "Ask again later 🔮", "Most likely 🌟", "Not now 🙃", "Absolutely! 💫"];
+          await client.sendMessage(jid, { text: "🔮 " + (arg || "Your question") + "\\n" + answers[Math.floor(Math.random() * answers.length)] }, { quoted: msg });
+        } else if ([".joke", "joke"].includes(command)) {
+          const jokes = ["Why did the phone need glasses? It lost its contacts. 📱", "Why do programmers prefer dark mode? Because light attracts bugs. 🐛", "I told my Wi-Fi a joke. It disconnected. 😂"];
+          await client.sendMessage(jid, { text: jokes[Math.floor(Math.random() * jokes.length)] }, { quoted: msg });
+        } else if ([".fact", "fact"].includes(command)) {
+          const facts = ["Octopuses have three hearts. 🐙", "Honey can remain edible for a very long time when stored properly. 🍯", "A day on Venus is longer than its year. 🪐"];
+          await client.sendMessage(jid, { text: "💡 " + facts[Math.floor(Math.random() * facts.length)] }, { quoted: msg });
+        } else if ([".love", "love"].includes(command)) {
+          await client.sendMessage(jid, { text: "💗 Love meter: " + Math.floor(Math.random() * 101) + "%\\nFun only — respect and kindness matter most." }, { quoted: msg });
+        } else if ([".motivate", "motivate"].includes(command)) {
+          const lines = ["Keep going. Small steps become big results. 💪", "Your future is built by what you do today. ⚡", "Stay humble, learn daily, and never stop improving. 🌟"];
+          await client.sendMessage(jid, { text: lines[Math.floor(Math.random() * lines.length)] }, { quoted: msg });
+        } else if ([".whoami", "whoami"].includes(command)) {
+          await client.sendMessage(jid, { text: "🆔 Your sender ID: " + (msg.key.participant || msg.key.remoteJid) }, { quoted: msg });
+        } else if ([".groupname", "groupname", ".members", "members", ".admins", "admins", ".link", "link"].includes(command)) {
+          if (!jid.endsWith("@g.us")) {
+            await client.sendMessage(jid, { text: "This command works inside a group." }, { quoted: msg });
+          } else {
+            const meta = await client.groupMetadata(jid);
+            if ([".groupname", "groupname"].includes(command)) await client.sendMessage(jid, { text: "👥 Group name: " + meta.subject }, { quoted: msg });
+            else if ([".members", "members"].includes(command)) await client.sendMessage(jid, { text: "👥 Members: " + meta.participants.length }, { quoted: msg });
+            else if ([".admins", "admins"].includes(command)) {
+              const admins = meta.participants.filter(p => p.admin).map(p => "• " + p.id);
+              await client.sendMessage(jid, { text: "🛡️ Group admins:\\n" + (admins.join("\\n") || "No admins found") }, { quoted: msg });
+            } else {
+              const invite = await client.groupInviteCode(jid);
+              await client.sendMessage(jid, { text: "🔗 Group invite: https://chat.whatsapp.com/" + invite }, { quoted: msg });
+            }
+          }
         } else if ([".quote", "quote"].includes(command)) {
           const quotes = [
             "Consistency makes an ordinary person extraordinary. — NIAZI-MD",
@@ -228,9 +295,31 @@ async function startUserSession(number, wantPairingCode) {
   session.starting = false;
 
   if (wantPairingCode && !session.registered) {
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    session.pairingCode = await client.requestPairingCode(number);
-    session.pairingCode = String(session.pairingCode || "").match(/.{1,4}/g)?.join("-") || String(session.pairingCode || "");
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(readyTimer);
+        client.ev.off("connection.update", onReady);
+        err ? reject(err) : resolve();
+      };
+      const readyTimer = setTimeout(() => finish(new Error("WhatsApp connection was not ready for pairing. Try again.")), 30000);
+      const onReady = async (update) => {
+        if (update.qr && !session.registered && !session.pairingRequested) {
+          session.pairingRequested = true;
+          try {
+            const code = await client.requestPairingCode(number);
+            session.pairingCode = String(code || "").match(/.{1,4}/g)?.join("-") || String(code || "");
+            finish();
+          } catch (err) { finish(err); }
+        }
+        if (update.connection === "close" && !session.pairingCode) {
+          finish(new Error("WhatsApp disconnected before the pairing code was ready."));
+        }
+      };
+      client.ev.on("connection.update", onReady);
+    });
     session.pairTimer = setTimeout(() => {
       const current = sessions.get(number);
       if (current === session && !session.registered) {
